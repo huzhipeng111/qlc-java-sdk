@@ -1,40 +1,46 @@
-package qlc.rpc;
-
-import com.alibaba.fastjson.JSONArray;
-import com.alibaba.fastjson.JSONObject;
-import qlc.network.QlcClient;
-import qlc.network.QlcException;
+package qlc.rpc.impl;
 
 import java.io.IOException;
 
-public class PledgeRpc {
-    /**
+import com.alibaba.fastjson.JSONArray;
+import com.alibaba.fastjson.JSONObject;
+
+import qlc.network.QlcClient;
+import qlc.network.QlcException;
+import qlc.rpc.QlcRpc;
+
+public class PledgeRpc extends QlcRpc {
+	
+    public PledgeRpc(QlcClient client) {
+		super(client);
+		// TODO Auto-generated constructor stub
+	}
+
+	/**
      * Return pledge data by pledge parameters ，if there are multiple identical pledge in the query result, it will be returned in time order
-     * @param url
      * @param params pledgeParams: pledge parameters
      *               beneficial：beneficial account
      *               amount：amount of pledge
      *               pType：type of pledge
-     * @return
-     * @throws QlcException
-     * @throws IOException
+     * @return pledge info
+     * @throws QlcException qlc exception
+     * @throws IOException io exception
      */
-    public static JSONObject searchPledgeInfo(String url, JSONArray params) throws QlcException, IOException {
-        QlcClient client = new QlcClient(url);
+    public JSONObject searchPledgeInfo(JSONArray params) throws IOException {
         return client.call("pledge_searchPledgeInfo", params);
     }
 
 
     /**
      * Return all pledge info
-     * @param url
      * @param params pledgeParams: no
-     * @return
-     * @throws QlcException
-     * @throws IOException
+     * @return pledge info
+     * @throws QlcException qlc exception
+     * @throws IOException io exception
      */
-    public static JSONObject pledge_searchAllPledgeInfo(String url, JSONArray params) throws QlcException, IOException {
-        QlcClient client = new QlcClient(url);
+    public JSONObject pledge_searchAllPledgeInfo(JSONArray params) throws IOException {
         return client.call("pledge_searchAllPledgeInfo", params);
     }
+    
 }
+

@@ -2,85 +2,94 @@ package qlc.network;
 
 import java.io.IOException;
 import java.net.MalformedURLException;
-import java.net.URL;
 import java.util.UUID;
-
 
 import com.alibaba.fastjson.JSONArray;
 import com.alibaba.fastjson.JSONObject;
-import org.apache.commons.httpclient.HttpClient;
-import org.apache.commons.httpclient.HttpStatus;
-import org.apache.commons.httpclient.auth.AuthScope;
-import org.apache.commons.httpclient.methods.PostMethod;
-import org.apache.commons.httpclient.methods.RequestEntity;
-import org.apache.commons.httpclient.methods.StringRequestEntity;
+
+import qlc.utils.Constants;
+import qlc.utils.StringUtil;
 
 public class QlcClient {
 	
-	private final URL url;
+	private final String url;
 	
+	/**
+	 * 
+	 * <p>Title: </p> 
+	 * <p>Description: </p> 
+	 * @param url:node url
+	 * @throws MalformedURLException Malformed URL Exception
+	 */
 	public QlcClient(String url) throws MalformedURLException {
-		this.url = new URL(url);
+		this.url = url;
 	}
 	
-	public JSONObject call(String method, JSONArray params) throws QlcException, IOException {
+	public JSONObject call(String method, JSONArray params) throws IOException {
 		
-		JSONObject response = send(makeRequest(method, params));
-		if (response.containsKey("result"))
+		if (StringUtil.isBlank(url))
+			throw new QlcException(Constants.EXCEPTION_SYS_CODE_3001, Constants.EXCEPTION_SYS_MSG_3001);
+		
+		JSONObject reqParams = makeRequest(method, params);
+		JSONObject response = null;
+		if (url.toLowerCase().startsWith(Constants.URL_START_HTTP))
+			response = httpReq(reqParams);
+		else if (url.toLowerCase().startsWith(Constants.URL_START_WEB_SOCKET))
+			response = wsReq(reqParams);
+		else
+			throw new QlcException(Constants.EXCEPTION_SYS_CODE_3002, Constants.EXCEPTION_SYS_MSG_3002);
+
+		if (response == null)
+			throw new QlcException(Constants.EXCEPTION_SYS_CODE_3003, Constants.EXCEPTION_SYS_MSG_3003);
+		if (response.containsKey("result") || response.containsKey("error"))
 			return response;
-		else if (response.containsKey("error"))
-			throw new QlcException((int)response.getJSONObject("error").getInteger("code"), response.getJSONObject("error").getString("message"));
 		else
 			throw new IOException();
 	}
 	
-	private static JSONObject makeRequest(String method, JSONArray params) {
+	private JSONObject makeRequest(String method, JSONArray params) {
 		
 		JSONObject request = new JSONObject();
 		request.put("jsonrpc", "2.0");
 		request.put("id", UUID.randomUUID().toString().replace("-", ""));
 		request.put("method", method);
-		request.put("params", params);
-		System.out.println(request.toJSONString());
+		if (params!=null && !params.isEmpty())
+			request.put("params", params);
 		return request;
 		
 	}
 	
-	private JSONObject send(JSONObject message) throws QlcException {
+	// http request
+	private JSONObject httpReq(JSONObject reqParams) throws MalformedURLException {
 		
-		PostMethod method = new PostMethod(url.toString());
-
+		QlcHttpClient client = new QlcHttpClient(url);	
+		return client.send(reqParams);
+		
+	}
+	
+	// websocket reuest
+	private JSONObject wsReq(JSONObject reqParams) {
+		QlcWebSocketClient client = new QlcWebSocketClient();
+		client.startRequest(url);
+		client.sendMessage(reqParams.toJSONString());
+		
 		try {
-			method.setRequestHeader("Content-Type", "application/json");
-
-			RequestEntity requestEntity = new StringRequestEntity(message.toString(), "application/json", "UTF-8");
-			method.setRequestEntity(requestEntity);
-
-			getHttpClient().executeMethod(method);
-			int statusCode = method.getStatusCode();
-
-			if (statusCode != HttpStatus.SC_OK) {
-				throw new QlcException(statusCode, "");
-			}
-
-			JSONObject response = JSONObject.parseObject(method.getResponseBodyAsString());
-			if (response == null) {
-				throw new QlcException(11, "Invalid response type");
-			}
-			return response;
-		} catch (Exception e) {
-			throw new QlcException(1, e.getMessage());
-		} finally {
-			method.releaseConnection();
+			Thread.sleep(500);
+		} catch (InterruptedException e1) {
+			e1.printStackTrace();
 		}
-	}
-
-	private HttpClient getHttpClient() {
+		String result = QlcWebSocketClient.result;
+		client.closeWebSocket();
 		
-		HttpClient client = new HttpClient();
-		client.getState().setCredentials(AuthScope.ANY, null);
-
-		return client;
+		if (StringUtil.isNotBlank(result)) {
+			try {
+				JSONObject json = JSONObject.parseObject(result);
+				return json;
+			} catch (Exception e) {
+				e.printStackTrace();
+			}
+		}
+		return null;
 	}
-
+	
 }
